@@ -5,262 +5,274 @@
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "37790165"
 	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{access_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://127.0.0.1:8000"
+		},
+		{
+			"key": "access_token",
+			"value": ""
+		},
+		{
+			"key": "refresh_token",
+			"value": ""
+		},
+		{
+			"key": "expense_id",
+			"value": "1"
+		}
+	],
 	"item": [
 		{
-			"name": "Retrieve Expenses (GET request)",
-			"request": {
-				"auth": {
-					"type": "basic",
-					"basic": [
-						{
-							"key": "password",
-							"value": "Amulya@123",
-							"type": "string"
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Register",
+					"request": {
+						"auth": {
+							"type": "noauth"
 						},
-						{
-							"key": "username",
-							"value": "amulya",
-							"type": "string"
-						}
-					]
-				},
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "http://127.0.0.1:8000/api/expenses/",
-					"protocol": "http",
-					"host": [
-						"127",
-						"0",
-						"0",
-						"1"
-					],
-					"port": "8000",
-					"path": [
-						"api",
-						"expenses",
-						""
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Create an Expense (POST request)",
-			"request": {
-				"auth": {
-					"type": "basic",
-					"basic": [
-						{
-							"key": "password",
-							"value": "Amulya@123",
-							"type": "string"
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"demo_user\",\n  \"email\": \"demo@example.com\",\n  \"password\": \"securepass1\"\n}"
 						},
-						{
-							"key": "username",
-							"value": "amulya",
-							"type": "string"
-						}
-					]
-				},
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
+						"url": "{{base_url}}/api/auth/register/"
 					},
-					{
-						"key": "Authorization",
-						"value": "Token YOUR_AUTH_TOKEN"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n           \"category\": \"food\",\n           \"amount\": \"15.00\"\n         }",
-					"options": {
-						"raw": {
-							"language": "json"
-						}
-					}
+					"response": []
 				},
-				"url": {
-					"raw": "http://127.0.0.1:8000/api/expenses/",
-					"protocol": "http",
-					"host": [
-						"127",
-						"0",
-						"0",
-						"1"
+				{
+					"name": "Obtain Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const data = pm.response.json();",
+									"    pm.collectionVariables.set('access_token', data.access);",
+									"    pm.collectionVariables.set('refresh_token', data.refresh);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
 					],
-					"port": "8000",
-					"path": [
-						"api",
-						"expenses",
-						""
-					]
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"demo_user\",\n  \"password\": \"securepass1\"\n}"
+						},
+						"url": "{{base_url}}/api/auth/token/"
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Token",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refresh\": \"{{refresh_token}}\"\n}"
+						},
+						"url": "{{base_url}}/api/auth/token/refresh/"
+					},
+					"response": []
 				}
-			},
-			"response": []
+			]
 		},
 		{
-			"name": "Retrieve Expenses with Filters (GET request)",
-			"request": {
-				"auth": {
-					"type": "basic",
-					"basic": [
-						{
-							"key": "password",
-							"value": "Amulya@123",
-							"type": "string"
+			"name": "Health",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"auth": {
+							"type": "noauth"
 						},
-						{
-							"key": "username",
-							"value": "amulya",
-							"type": "string"
-						}
-					]
-				},
-				"method": "GET",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Token YOUR_AUTH_TOKEN"
-					}
-				],
-				"url": {
-					"raw": "http://127.0.0.1:8000/api/expenses?category=food&start_date=2023-01-01&end_date=2023-12-3",
-					"protocol": "http",
-					"host": [
-						"127",
-						"0",
-						"0",
-						"1"
-					],
-					"port": "8000",
-					"path": [
-						"api",
-						"expenses"
-					],
-					"query": [
-						{
-							"key": "category",
-							"value": "food"
-						},
-						{
-							"key": "start_date",
-							"value": "2023-01-01"
-						},
-						{
-							"key": "end_date",
-							"value": "2023-12-3"
-						}
-					]
+						"method": "GET",
+						"url": "{{base_url}}/api/health/"
+					},
+					"response": []
 				}
-			},
-			"response": []
+			]
 		},
 		{
-			"name": "Calculate Total Expenses (GET request)",
-			"request": {
-				"auth": {
-					"type": "basic",
-					"basic": [
-						{
-							"key": "password",
-							"value": "Amulya@123",
-							"type": "string"
-						},
-						{
-							"key": "username",
-							"value": "amulya",
-							"type": "string"
-						}
-					]
+			"name": "Expenses",
+			"item": [
+				{
+					"name": "List Expenses",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/api/expenses/"
+					},
+					"response": []
 				},
-				"method": "GET",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Token YOUR_AUTH_TOKEN"
-					}
-				],
-				"url": {
-					"raw": "http://127.0.0.1:8000/api/expenses/total/",
-					"protocol": "http",
-					"host": [
-						"127",
-						"0",
-						"0",
-						"1"
+				{
+					"name": "Create Expense",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    pm.collectionVariables.set('expense_id', pm.response.json().id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
 					],
-					"port": "8000",
-					"path": [
-						"api",
-						"expenses",
-						"total",
-						""
-					]
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"category\": \"food\",\n  \"amount\": \"15.00\",\n  \"description\": \"Lunch\"\n}"
+						},
+						"url": "{{base_url}}/api/expenses/"
+					},
+					"response": []
+				},
+				{
+					"name": "Retrieve Expense",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/api/expenses/{{expense_id}}/"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Expense",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"amount\": \"20.00\",\n  \"description\": \"Updated lunch\"\n}"
+						},
+						"url": "{{base_url}}/api/expenses/{{expense_id}}/"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Expense",
+					"request": {
+						"method": "DELETE",
+						"url": "{{base_url}}/api/expenses/{{expense_id}}/"
+					},
+					"response": []
+				},
+				{
+					"name": "List Expenses with Filters",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/expenses/?category=food&start_date=2024-01-01&end_date=2024-12-31",
+							"host": ["{{base_url}}"],
+							"path": ["api", "expenses", ""],
+							"query": [
+								{"key": "category", "value": "food"},
+								{"key": "start_date", "value": "2024-01-01"},
+								{"key": "end_date", "value": "2024-12-31"}
+							]
+						}
+					},
+					"response": []
 				}
-			},
-			"response": []
+			]
 		},
 		{
-			"name": "Calculate Total Expenses with Filters (GET request)",
-			"request": {
-				"auth": {
-					"type": "basic",
-					"basic": [
-						{
-							"key": "password",
-							"value": "Amulya@123",
-							"type": "string"
-						},
-						{
-							"key": "username",
-							"value": "amulya",
-							"type": "string"
-						}
-					]
+			"name": "Reports",
+			"item": [
+				{
+					"name": "Total Expenses",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/api/expenses/total/"
+					},
+					"response": []
 				},
-				"method": "GET",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Token YOUR_AUTH_TOKEN"
-					}
-				],
-				"url": {
-					"raw": "http://127.0.0.1:8000/api/expenses/total?category=food&start_date=2023-01-01&end_date=2023-12-31",
-					"protocol": "http",
-					"host": [
-						"127",
-						"0",
-						"0",
-						"1"
-					],
-					"port": "8000",
-					"path": [
-						"api",
-						"expenses",
-						"total"
-					],
-					"query": [
-						{
-							"key": "category",
-							"value": "food"
-						},
-						{
-							"key": "start_date",
-							"value": "2023-01-01"
-						},
-						{
-							"key": "end_date",
-							"value": "2023-12-31"
+				{
+					"name": "Total Expenses with Filters",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/expenses/total/?category=food&start_date=2024-01-01&end_date=2024-12-31",
+							"host": ["{{base_url}}"],
+							"path": ["api", "expenses", "total", ""],
+							"query": [
+								{"key": "category", "value": "food"},
+								{"key": "start_date", "value": "2024-01-01"},
+								{"key": "end_date", "value": "2024-12-31"}
+							]
 						}
-					]
+					},
+					"response": []
+				},
+				{
+					"name": "Summary by Category",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/expenses/summary/?start_date=2024-01-01&end_date=2024-12-31",
+							"host": ["{{base_url}}"],
+							"path": ["api", "expenses", "summary", ""],
+							"query": [
+								{"key": "start_date", "value": "2024-01-01"},
+								{"key": "end_date", "value": "2024-12-31"}
+							]
+						}
+					},
+					"response": []
 				}
-			},
-			"response": []
+			]
 		}
 	]
 }

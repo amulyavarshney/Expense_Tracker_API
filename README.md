@@ -1,108 +1,164 @@
 # Expense Tracker API
 
-## Introduction
+A production-ready Django REST API for logging personal expenses, with JWT authentication, filtering, aggregates, OpenAPI docs, and Docker support.
 
-The Expense Tracker API is a Django-based application that allows users to log and manage their expenses. This RESTful API enables users to create new expense entries, retrieve their logged expenses with various filtering options, and calculate the total expenses for a specified period. The application ensures that users can only access their own expense data, providing a secure way to manage personal finances.
+## Features
 
-### Features
+- **JWT authentication** — register, obtain access/refresh tokens
+- **Expense CRUD** — create, list, retrieve, update, delete (user-scoped)
+- **Filtering** — by category, start/end date (inclusive end date)
+- **Reports** — total spend and per-category summary
+- **OpenAPI** — interactive docs at `/api/docs/`
+- **Health check** — `GET /api/health/`
+- **Docker** — Dockerfile and docker-compose for local deployment
 
-- **User Authentication**: Secure user authentication to ensure that only registered users can log and retrieve their expenses.
-- **Create Expense**: Users can create new expense records by specifying the category and amount.
-- **Retrieve Expenses**: Users can retrieve their expenses and filter the results by category, start date, and end date.
-- **Calculate Total Expenses**: Users can calculate the total amount spent over a specified period.
-- **Data Security**: Users are restricted to accessing only their own expense data.
+## Quick start
 
-## Setup
-
-### 1. Clone the repository
+### 1. Clone and enter the project
 
 ```bash
 git clone <repository-url>
-cd expense_tracker
+cd Expense_Tracker_API
 ```
 
-### 2. Create a virtual environment and activate it
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+# Edit .env — set SECRET_KEY and other values as needed
+```
+
+### 3. Install dependencies
 
 ```bash
 python -m venv venv
-source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-```
-
-### 3. Install the dependencies
-
-```bash
+source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 4. Run migrations
+### 4. Migrate and run
 
 ```bash
 python manage.py migrate
-```
-
-### 5. Create a superuser
-
-```bash
-python manage.py createsuperuser
-```
-
-### 6. Run the server
-
-```bash
 python manage.py runserver
 ```
 
-## API Endpoints
+API base URL: `http://127.0.0.1:8000/api/`
 
-### 1. Create and Retrieve Expenses
+## Environment variables
 
-- **URL:** `/api/expenses/`
-- **Method:** `GET`, `POST`
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SECRET_KEY` | (dev fallback) | Django secret key |
+| `DEBUG` | `True` | Enable debug mode |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated hosts |
+| `DATABASE_URL` | — | PostgreSQL URL; omit for SQLite |
+| `SQLITE_DB_PATH` | `db.sqlite3` | SQLite file path (Docker uses `/data/db.sqlite3`) |
+| `CORS_ALLOWED_ORIGINS` | — | Comma-separated allowed origins |
 
-### 2. Calculate Total Expenses
+## Authentication (JWT)
 
-- **URL:** `/api/expenses/total/`
-- **Method:** `GET`
+### Register
 
-## Filters
+```http
+POST /api/auth/register/
+Content-Type: application/json
 
-- `category`: Filter by expense category
-- `start_date`: Filter expenses from this date (format: `YYYY-MM-DD`)
-- `end_date`: Filter expenses up to this date (format: `YYYY-MM-DD`)
+{"username": "alice", "email": "alice@example.com", "password": "securepass1"}
+```
 
-### Usage
+### Obtain tokens
 
-- **Authenticate**: Obtain a token by logging in with your credentials.
-- **Create Expense**: Use the `/api/expenses/` endpoint to create new expense entries.
-- **Retrieve Expenses**: Use the `/api/expenses/` endpoint to retrieve and filter your expenses.
-- **Calculate Total Expenses**: Use the `/api/expenses/total/` endpoint to calculate the total expenses for a specified period.
+```http
+POST /api/auth/token/
+Content-Type: application/json
 
-### Postman Collection
+{"username": "alice", "password": "securepass1"}
+```
 
-A Postman collection is provided to help you get started quickly with the API. Download the [Expense Tracker API Postman Collection](Expense_Tracker_API.postman_collection.json) and import it into Postman to interact with the API endpoints.
+Response includes `access` and `refresh` tokens.
 
-### Dependencies
+### Refresh access token
 
-- Django
-- Django REST Framework
+```http
+POST /api/auth/token/refresh/
+Content-Type: application/json
 
-### Push to GitHub
+{"refresh": "<refresh_token>"}
+```
 
-1. Initialize the repository if you haven't already:
+### Authenticated requests
 
-    ```bash
-    git init
-    git add .
-    git commit -m "Initial commit"
-    ```
+Include the access token in the `Authorization` header:
 
-2. Create a new repository on GitHub and follow the instructions to push your code:
+```
+Authorization: Bearer <access_token>
+```
 
-    ```bash
-    git remote add origin <repository-url>
-    git push -u origin main
-    ```
+## API endpoints
 
-### License
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/health/` | Health check (public) |
+| `POST` | `/api/auth/register/` | Create account (public) |
+| `POST` | `/api/auth/token/` | Obtain JWT pair (public) |
+| `POST` | `/api/auth/token/refresh/` | Refresh access token (public) |
+| `GET`, `POST` | `/api/expenses/` | List (paginated) / create expenses |
+| `GET`, `PUT`, `PATCH`, `DELETE` | `/api/expenses/{id}/` | Retrieve / update / delete expense |
+| `GET` | `/api/expenses/total/` | Total spend (filtered) |
+| `GET` | `/api/expenses/summary/` | Totals grouped by category |
+| `GET` | `/api/schema/` | OpenAPI schema |
+| `GET` | `/api/docs/` | Swagger UI |
 
-This project is licensed under the MIT License.
+### Query filters (list, total, summary)
+
+| Param | Format | Description |
+|-------|--------|-------------|
+| `category` | `food`, `transport`, `entertainment`, `other` | Filter by category |
+| `start_date` | `YYYY-MM-DD` | Expenses on or after this date |
+| `end_date` | `YYYY-MM-DD` | Expenses on or before this date (inclusive) |
+
+Invalid date formats return `400 Bad Request`.
+
+### Create expense body
+
+```json
+{
+  "category": "food",
+  "amount": "15.00",
+  "description": "Lunch at cafe"
+}
+```
+
+`amount` must be greater than zero.
+
+## Docker
+
+### SQLite (default)
+
+```bash
+docker compose up --build
+```
+
+### PostgreSQL
+
+```bash
+# In .env, set:
+# DATABASE_URL=postgresql://expense_user:expense_pass@db:5432/expense_tracker
+
+docker compose --profile postgres up --build
+```
+
+## Testing
+
+```bash
+python manage.py test
+```
+
+## Postman
+
+Import [`EXPENSE_TRACKER_API.postman_collection.json`](EXPENSE_TRACKER_API.postman_collection.json). The collection uses Bearer JWT auth — run **Obtain Token** first, then set the `access_token` collection variable.
+
+## License
+
+MIT License — see [LICENSE](LICENSE).
