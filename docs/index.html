@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Expense Tracker — demo UI for the Django REST Expense Tracker API" />
+  <title>Expense Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <p class="brand-name">Expense Tracker</p>
+        <p class="brand-tag">API demo</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <label class="mode-toggle" title="Use in-browser demo data or a live API">
+        <input type="checkbox" id="demoMode" checked />
+        <span>Demo mode</span>
+      </label>
+      <button type="button" class="btn ghost" id="settingsBtn">Settings</button>
+      <button type="button" class="btn ghost hidden" id="logoutBtn">Log out</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="authView" class="panel auth-panel">
+      <h1>Track spending with clarity</h1>
+      <p class="lede">Register or sign in to manage expenses, categories, budgets, and reports. Demo mode works fully offline on GitHub Pages.</p>
+      <div class="tabs">
+        <button type="button" class="tab active" data-auth-tab="login">Sign in</button>
+        <button type="button" class="tab" data-auth-tab="register">Register</button>
+      </div>
+      <form id="loginForm" class="stack">
+        <label>Username<input name="username" required autocomplete="username" /></label>
+        <label>Password<input name="password" type="password" required autocomplete="current-password" /></label>
+        <button type="submit" class="btn primary">Sign in</button>
+      </form>
+      <form id="registerForm" class="stack hidden">
+        <label>Username<input name="username" required autocomplete="username" /></label>
+        <label>Email<input name="email" type="email" autocomplete="email" /></label>
+        <label>Password<input name="password" type="password" required minlength="8" autocomplete="new-password" /></label>
+        <button type="submit" class="btn primary">Create account</button>
+      </form>
+      <p class="hint" id="authHint">Demo mode is on — data stays in this browser.</p>
+    </section>
+
+    <section id="appView" class="hidden">
+      <nav class="nav-pills" role="tablist">
+        <button type="button" class="pill active" data-view="dashboard">Dashboard</button>
+        <button type="button" class="pill" data-view="expenses">Expenses</button>
+        <button type="button" class="pill" data-view="categories">Categories</button>
+        <button type="button" class="pill" data-view="budgets">Budgets</button>
+        <button type="button" class="pill" data-view="reports">Reports</button>
+      </nav>
+
+      <div id="view-dashboard" class="view">
+        <div class="stat-grid">
+          <article class="stat"><p class="stat-label">Total (filtered)</p><p class="stat-value" id="dashTotal">—</p></article>
+          <article class="stat"><p class="stat-label">Expenses</p><p class="stat-value" id="dashCount">—</p></article>
+          <article class="stat"><p class="stat-label">Budgets</p><p class="stat-value" id="dashBudgets">—</p></article>
+          <article class="stat"><p class="stat-label">Categories</p><p class="stat-value" id="dashCategories">—</p></article>
+        </div>
+        <div class="split">
+          <article class="card">
+            <h2>Recent expenses</h2>
+            <ul id="dashRecent" class="list"></ul>
+          </article>
+          <article class="card">
+            <h2>Category mix</h2>
+            <ul id="dashSummary" class="list"></ul>
+          </article>
+        </div>
+      </div>
+
+      <div id="view-expenses" class="view hidden">
+        <div class="toolbar">
+          <h2>Expenses</h2>
+          <button type="button" class="btn primary" id="addExpenseBtn">Add expense</button>
+        </div>
+        <form id="expenseFilters" class="filters">
+          <label>Category
+            <select name="category"><option value="">All</option></select>
+          </label>
+          <label>Currency
+            <select name="currency">
+              <option value="">All</option>
+              <option>USD</option><option>EUR</option><option>GBP</option><option>INR</option><option>JPY</option>
+            </select>
+          </label>
+          <label>From<input type="date" name="start_date" /></label>
+          <label>To<input type="date" name="end_date" /></label>
+          <button type="submit" class="btn">Apply</button>
+        </form>
+        <div id="expenseList" class="table-wrap"></div>
+      </div>
+
+      <div id="view-categories" class="view hidden">
+        <div class="toolbar">
+          <h2>Categories</h2>
+        </div>
+        <form id="categoryForm" class="inline-form">
+          <input name="name" placeholder="Name (e.g. Groceries)" required />
+          <input name="slug" placeholder="Slug (optional)" />
+          <button type="submit" class="btn primary">Add category</button>
+        </form>
+        <div id="categoryList" class="table-wrap"></div>
+      </div>
+
+      <div id="view-budgets" class="view hidden">
+        <div class="toolbar">
+          <h2>Budgets</h2>
+          <button type="button" class="btn primary" id="addBudgetBtn">Add budget</button>
+        </div>
+        <div id="budgetList" class="table-wrap"></div>
+      </div>
+
+      <div id="view-reports" class="view hidden">
+        <div class="toolbar"><h2>Reports</h2></div>
+        <form id="reportFilters" class="filters">
+          <label>Category
+            <select name="category"><option value="">All</option></select>
+          </label>
+          <label>Currency
+            <select name="currency">
+              <option value="">All</option>
+              <option>USD</option><option>EUR</option><option>GBP</option><option>INR</option><option>JPY</option>
+            </select>
+          </label>
+          <label>From<input type="date" name="start_date" /></label>
+          <label>To<input type="date" name="end_date" /></label>
+          <button type="submit" class="btn">Refresh</button>
+        </form>
+        <div class="split">
+          <article class="card">
+            <h3>Total</h3>
+            <pre id="reportTotal" class="code-block">—</pre>
+          </article>
+          <article class="card">
+            <h3>Summary by category</h3>
+            <pre id="reportSummary" class="code-block">—</pre>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="settingsDialog">
+    <form method="dialog" id="settingsForm" class="stack">
+      <h2>Settings</h2>
+      <label>API base URL
+        <input name="apiBase" placeholder="http://127.0.0.1:8000/api" />
+      </label>
+      <p class="hint">Turn off Demo mode in the header to call a live API. Ensure CORS allows this origin.</p>
+      <menu>
+        <button type="submit" class="btn primary" value="save">Save</button>
+        <button type="button" class="btn ghost" id="closeSettings">Close</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="expenseDialog">
+    <form id="expenseForm" class="stack">
+      <h2 id="expenseDialogTitle">Add expense</h2>
+      <input type="hidden" name="id" />
+      <label>Category
+        <select name="category" required></select>
+      </label>
+      <label>Amount<input name="amount" type="number" min="0.01" step="0.01" required /></label>
+      <label>Currency
+        <select name="currency">
+          <option>USD</option><option>EUR</option><option>GBP</option><option>INR</option><option>JPY</option>
+        </select>
+      </label>
+      <label>Description<textarea name="description" rows="2"></textarea></label>
+      <label>Receipt<input name="receipt" type="file" accept="image/*,.pdf" /></label>
+      <menu>
+        <button type="submit" class="btn primary">Save</button>
+        <button type="button" class="btn ghost" data-close="expenseDialog">Cancel</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="budgetDialog">
+    <form id="budgetForm" class="stack">
+      <h2 id="budgetDialogTitle">Add budget</h2>
+      <input type="hidden" name="id" />
+      <label>Category
+        <select name="category" required></select>
+      </label>
+      <label>Amount<input name="amount" type="number" min="0.01" step="0.01" required /></label>
+      <label>Period
+        <select name="period" required>
+          <option value="weekly">Weekly</option>
+          <option value="monthly" selected>Monthly</option>
+          <option value="yearly">Yearly</option>
+        </select>
+      </label>
+      <menu>
+        <button type="submit" class="btn primary">Save</button>
+        <button type="button" class="btn ghost" data-close="budgetDialog">Cancel</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+
+  <footer class="site-footer">
+    <a href="https://github.com/amulyavarshney/Expense_Tracker_API" rel="noopener">API source</a>
+    <span>·</span>
+    <a href="https://github.com/amulyavarshney/Expense_Tracker_API#readme" rel="noopener">Docs</a>
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/demo-store.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -152,10 +152,12 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
 }
 
-_cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS', '')
-if _cors_origins:
-    CORS_ALLOWED_ORIGINS = [
-        origin.strip() for origin in _cors_origins.split(',') if origin.strip()
-    ]
-else:
-    CORS_ALLOWED_ORIGINS = []
+_default_cors = (
+    'http://localhost:5500,http://127.0.0.1:5500,'
+    'http://localhost:3000,http://127.0.0.1:3000,'
+    'https://amulyavarshney.github.io'
+)
+_cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS', _default_cors)
+CORS_ALLOWED_ORIGINS = [
+    origin.strip() for origin in _cors_origins.split(',') if origin.strip()
+]
