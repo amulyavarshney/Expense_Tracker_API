@@ -20,7 +20,7 @@ def apply_expense_filters(queryset, query_params):
     end_date = query_params.get('end_date')
 
     if category:
-        queryset = queryset.filter(category=category)
+        queryset = queryset.filter(category__slug=category)
 
     if start_date:
         parsed = _parse_date(start_date, 'start_date')
@@ -31,5 +31,9 @@ def apply_expense_filters(queryset, query_params):
         parsed = _parse_date(end_date, 'end_date')
         end_dt = make_aware(datetime.combine(parsed, time.max))
         queryset = queryset.filter(timestamp__lte=end_dt)
+
+    currency = query_params.get('currency')
+    if currency:
+        queryset = queryset.filter(currency=currency.upper())
 
     return queryset

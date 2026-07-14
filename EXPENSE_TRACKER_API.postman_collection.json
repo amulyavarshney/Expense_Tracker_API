@@ -31,6 +31,10 @@
 		{
 			"key": "expense_id",
 			"value": "1"
+		},
+		{
+			"key": "budget_id",
+			"value": "1"
 		}
 	],
 	"item": [
@@ -134,6 +138,71 @@
 			]
 		},
 		{
+			"name": "Categories",
+			"item": [
+				{
+					"name": "List Categories",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/api/categories/"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Category",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Groceries\",\n  \"slug\": \"groceries\"\n}"
+						},
+						"url": "{{base_url}}/api/categories/"
+					},
+					"response": []
+				},
+				{
+					"name": "Retrieve Category",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/api/categories/1/"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Category",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Pet Supplies\"\n}"
+						},
+						"url": "{{base_url}}/api/categories/1/"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Category",
+					"request": {
+						"method": "DELETE",
+						"url": "{{base_url}}/api/categories/1/"
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "Expenses",
 			"item": [
 				{
@@ -169,7 +238,38 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"category\": \"food\",\n  \"amount\": \"15.00\",\n  \"description\": \"Lunch\"\n}"
+							"raw": "{\n  \"category\": \"food\",\n  \"amount\": \"15.00\",\n  \"currency\": \"USD\",\n  \"description\": \"Lunch\"\n}"
+						},
+						"url": "{{base_url}}/api/expenses/"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Expense with Receipt",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    pm.collectionVariables.set('expense_id', pm.response.json().id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{"key": "category", "value": "food", "type": "text"},
+								{"key": "amount", "value": "15.00", "type": "text"},
+								{"key": "currency", "value": "USD", "type": "text"},
+								{"key": "description", "value": "Lunch with receipt", "type": "text"},
+								{"key": "receipt", "type": "file", "src": []}
+							]
 						},
 						"url": "{{base_url}}/api/expenses/"
 					},
@@ -214,13 +314,108 @@
 					"request": {
 						"method": "GET",
 						"url": {
-							"raw": "{{base_url}}/api/expenses/?category=food&start_date=2024-01-01&end_date=2024-12-31",
+							"raw": "{{base_url}}/api/expenses/?category=food&currency=USD&start_date=2024-01-01&end_date=2024-12-31",
 							"host": ["{{base_url}}"],
 							"path": ["api", "expenses", ""],
 							"query": [
 								{"key": "category", "value": "food"},
+								{"key": "currency", "value": "USD"},
 								{"key": "start_date", "value": "2024-01-01"},
 								{"key": "end_date", "value": "2024-12-31"}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Budgets",
+			"item": [
+				{
+					"name": "List Budgets",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/api/budgets/"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Budget",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    pm.collectionVariables.set('budget_id', pm.response.json().id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"category\": \"food\",\n  \"amount\": \"500.00\",\n  \"period\": \"monthly\"\n}"
+						},
+						"url": "{{base_url}}/api/budgets/"
+					},
+					"response": []
+				},
+				{
+					"name": "Retrieve Budget",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/api/budgets/{{budget_id}}/"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Budget",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"amount\": \"600.00\"\n}"
+						},
+						"url": "{{base_url}}/api/budgets/{{budget_id}}/"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Budget",
+					"request": {
+						"method": "DELETE",
+						"url": "{{base_url}}/api/budgets/{{budget_id}}/"
+					},
+					"response": []
+				},
+				{
+					"name": "List Budgets with Filters",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/budgets/?category=food&period=monthly",
+							"host": ["{{base_url}}"],
+							"path": ["api", "budgets", ""],
+							"query": [
+								{"key": "category", "value": "food"},
+								{"key": "period", "value": "monthly"}
 							]
 						}
 					},
@@ -244,11 +439,12 @@
 					"request": {
 						"method": "GET",
 						"url": {
-							"raw": "{{base_url}}/api/expenses/total/?category=food&start_date=2024-01-01&end_date=2024-12-31",
+							"raw": "{{base_url}}/api/expenses/total/?category=food&currency=USD&start_date=2024-01-01&end_date=2024-12-31",
 							"host": ["{{base_url}}"],
 							"path": ["api", "expenses", "total", ""],
 							"query": [
 								{"key": "category", "value": "food"},
+								{"key": "currency", "value": "USD"},
 								{"key": "start_date", "value": "2024-01-01"},
 								{"key": "end_date", "value": "2024-12-31"}
 							]

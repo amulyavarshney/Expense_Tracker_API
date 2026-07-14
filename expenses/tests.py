@@ -6,7 +6,11 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from expenses.models import Expense
+from expenses.models import Category, Expense
+
+
+def system_category(slug):
+    return Category.objects.get(user__isnull=True, slug=slug)
 
 
 class AuthTests(APITestCase):
@@ -50,6 +54,96 @@ class AuthTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
+class CategoryTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='catuser', password='securepass1')
+        self.client.force_authenticate(user=self.user)
+
+    def test_list_includes_system_defaults(self):
+        response = self.client.get(reverse('category-list-create'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        slugs = {item['slug'] for item in response.data['results']}
+        self.assertTrue({'food', 'transport', 'entertainment', 'other'}.issubset(slugs))
+
+    def test_create_custom_category(self):
+        response = self.client.post(
+            reverse('category-list-create'),
+            {'name': 'Groceries', 'slug': 'groceries'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertFalse(response.data['is_system'])
+        self.assertTrue(
+            Category.objects.filter(user=self.user, slug='groceries').exists()
+        )
+
+    def test_reserved_system_slug_rejected(self):
+        response = self.client.post(
+            reverse('category-list-create'),
+            {'name': 'Duplicate Food', 'slug': 'food'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_retrieve_system_category(self):
+        food = system_category('food')
+        response = self.client.get(reverse('category-detail', kwargs={'pk': food.pk}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['is_system'])
+        self.assertEqual(response.data['slug'], 'food')
+
+    def test_retrieve_custom_category(self):
+        custom = Category.objects.create(user=self.user, slug='pets', name='Pets')
+        response = self.client.get(reverse('category-detail', kwargs={'pk': custom.pk}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['is_system'])
+        self.assertEqual(response.data['name'], 'Pets')
+
+    def test_update_custom_category(self):
+        custom = Category.objects.create(user=self.user, slug='pets', name='Pets')
+        response = self.client.patch(
+            reverse('category-detail', kwargs={'pk': custom.pk}),
+            {'name': 'Pet Supplies'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        custom.refresh_from_db()
+        self.assertEqual(custom.name, 'Pet Supplies')
+
+    def test_delete_custom_category(self):
+        custom = Category.objects.create(user=self.user, slug='pets', name='Pets')
+        response = self.client.delete(reverse('category-detail', kwargs={'pk': custom.pk}))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Category.objects.filter(pk=custom.pk).exists())
+
+    def test_delete_category_in_use_returns_400(self):
+        custom = Category.objects.create(user=self.user, slug='pets', name='Pets')
+        Expense.objects.create(user=self.user, category=custom, amount=Decimal('10.00'))
+        response = self.client.delete(reverse('category-detail', kwargs={'pk': custom.pk}))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(Category.objects.filter(pk=custom.pk).exists())
+
+    def test_update_system_category_forbidden(self):
+        food = system_category('food')
+        response = self.client.patch(
+            reverse('category-detail', kwargs={'pk': food.pk}),
+            {'name': 'Meals'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_delete_system_category_forbidden(self):
+        food = system_category('food')
+        response = self.client.delete(reverse('category-detail', kwargs={'pk': food.pk}))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_other_users_category_not_visible(self):
+        other = User.objects.create_user(username='othercat', password='securepass1')
+        other_cat = Category.objects.create(user=other, slug='secret', name='Secret')
+        response = self.client.get(reverse('category-detail', kwargs={'pk': other_cat.pk}))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
 class ExpenseCRUDTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='tester', password='securepass1')
@@ -64,8 +158,20 @@ class ExpenseCRUDTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['username'], 'tester')
+        self.assertEqual(response.data['category'], 'food')
+        self.assertEqual(response.data['category_name'], 'Food')
         self.assertEqual(response.data['description'], 'Lunch')
         self.assertNotIn('user', response.data)
+
+    def test_create_expense_with_custom_category(self):
+        custom = Category.objects.create(user=self.user, slug='pets', name='Pets')
+        response = self.client.post(
+            reverse('expense-list-create'),
+            {'category': 'pets', 'amount': '12.00'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['category'], custom.slug)
 
     def test_negative_amount_rejected(self):
         response = self.client.post(
@@ -75,10 +181,24 @@ class ExpenseCRUDTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_invalid_category_slug_rejected(self):
+        response = self.client.post(
+            reverse('expense-list-create'),
+            {'category': 'nonexistent-slug', 'amount': '10.00'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_list_expenses_paginated(self):
-        Expense.objects.create(user=self.user, category='food', amount=Decimal('10.00'))
-        Expense.objects.create(user=self.user, category='transport', amount=Decimal('20.00'))
-        Expense.objects.create(user=self.other_user, category='food', amount=Decimal('99.00'))
+        Expense.objects.create(
+            user=self.user, category=system_category('food'), amount=Decimal('10.00')
+        )
+        Expense.objects.create(
+            user=self.user, category=system_category('transport'), amount=Decimal('20.00')
+        )
+        Expense.objects.create(
+            user=self.other_user, category=system_category('food'), amount=Decimal('99.00')
+        )
 
         response = self.client.get(reverse('expense-list-create'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -86,13 +206,17 @@ class ExpenseCRUDTests(APITestCase):
         self.assertEqual(len(response.data['results']), 2)
 
     def test_retrieve_expense(self):
-        expense = Expense.objects.create(user=self.user, category='food', amount=Decimal('15.00'))
+        expense = Expense.objects.create(
+            user=self.user, category=system_category('food'), amount=Decimal('15.00')
+        )
         response = self.client.get(reverse('expense-detail', kwargs={'pk': expense.pk}))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['amount'], '15.00')
 
     def test_update_expense(self):
-        expense = Expense.objects.create(user=self.user, category='food', amount=Decimal('15.00'))
+        expense = Expense.objects.create(
+            user=self.user, category=system_category('food'), amount=Decimal('15.00')
+        )
         response = self.client.patch(
             reverse('expense-detail', kwargs={'pk': expense.pk}),
             {'amount': '20.00', 'description': 'Updated'},
@@ -104,14 +228,16 @@ class ExpenseCRUDTests(APITestCase):
         self.assertEqual(expense.description, 'Updated')
 
     def test_delete_expense(self):
-        expense = Expense.objects.create(user=self.user, category='food', amount=Decimal('15.00'))
+        expense = Expense.objects.create(
+            user=self.user, category=system_category('food'), amount=Decimal('15.00')
+        )
         response = self.client.delete(reverse('expense-detail', kwargs={'pk': expense.pk}))
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Expense.objects.filter(pk=expense.pk).exists())
 
     def test_user_isolation_on_detail(self):
         other_expense = Expense.objects.create(
-            user=self.other_user, category='food', amount=Decimal('50.00')
+            user=self.other_user, category=system_category('food'), amount=Decimal('50.00')
         )
         response = self.client.get(reverse('expense-detail', kwargs={'pk': other_expense.pk}))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -122,8 +248,12 @@ class ExpenseFilterTests(APITestCase):
         self.user = User.objects.create_user(username='filteruser', password='securepass1')
         self.client.force_authenticate(user=self.user)
 
-        Expense.objects.create(user=self.user, category='food', amount=Decimal('10.00'))
-        Expense.objects.create(user=self.user, category='transport', amount=Decimal('20.00'))
+        Expense.objects.create(
+            user=self.user, category=system_category('food'), amount=Decimal('10.00')
+        )
+        Expense.objects.create(
+            user=self.user, category=system_category('transport'), amount=Decimal('20.00')
+        )
 
     def test_filter_by_category(self):
         response = self.client.get(reverse('expense-list-create'), {'category': 'food'})
@@ -137,7 +267,9 @@ class ExpenseFilterTests(APITestCase):
 
     def test_end_date_is_inclusive(self):
         today = timezone.now().date()
-        Expense.objects.create(user=self.user, category='other', amount=Decimal('5.00'))
+        Expense.objects.create(
+            user=self.user, category=system_category('other'), amount=Decimal('5.00')
+        )
 
         response = self.client.get(
             reverse('expense-list-create'),
@@ -155,26 +287,36 @@ class AggregateTests(APITestCase):
         self.user = User.objects.create_user(username='agguser', password='securepass1')
         self.client.force_authenticate(user=self.user)
 
-        Expense.objects.create(user=self.user, category='food', amount=Decimal('10.00'))
-        Expense.objects.create(user=self.user, category='food', amount=Decimal('15.00'))
-        Expense.objects.create(user=self.user, category='transport', amount=Decimal('30.00'))
+        Expense.objects.create(
+            user=self.user, category=system_category('food'), amount=Decimal('10.00')
+        )
+        Expense.objects.create(
+            user=self.user, category=system_category('food'), amount=Decimal('15.00')
+        )
+        Expense.objects.create(
+            user=self.user, category=system_category('transport'), amount=Decimal('30.00')
+        )
 
     def test_total_expenses(self):
         response = self.client.get(reverse('total-expenses'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['total_expenses'], 55.0)
+        self.assertEqual(response.data['currency'], 'USD')
 
     def test_total_with_category_filter(self):
         response = self.client.get(reverse('total-expenses'), {'category': 'food'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['total_expenses'], 25.0)
+        self.assertEqual(response.data['currency'], 'USD')
 
     def test_summary_by_category(self):
         response = self.client.get(reverse('expense-summary'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['currency'], 'USD')
         by_category = {item['category']: item for item in response.data['by_category']}
         self.assertEqual(by_category['food']['total'], 25.0)
         self.assertEqual(by_category['food']['count'], 2)
+        self.assertEqual(by_category['food']['category_name'], 'Food')
         self.assertEqual(by_category['transport']['total'], 30.0)
 
 
@@ -183,3 +325,136 @@ class HealthTests(APITestCase):
         response = self.client.get(reverse('health-check'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json()['status'], 'ok')
+
+
+class CurrencyTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='currencyuser', password='securepass1')
+        self.client.force_authenticate(user=self.user)
+
+    def test_create_expense_defaults_to_usd(self):
+        response = self.client.post(
+            reverse('expense-list-create'),
+            {'category': 'food', 'amount': '10.00'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['currency'], 'USD')
+
+    def test_create_expense_with_valid_currency(self):
+        response = self.client.post(
+            reverse('expense-list-create'),
+            {'category': 'food', 'amount': '10.00', 'currency': 'EUR'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['currency'], 'EUR')
+
+    def test_invalid_currency_rejected(self):
+        for bad_currency in ('us', 'USDD', 'usd', '12A'):
+            response = self.client.post(
+                reverse('expense-list-create'),
+                {'category': 'food', 'amount': '10.00', 'currency': bad_currency},
+                format='json',
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_filter_by_currency(self):
+        Expense.objects.create(
+            user=self.user,
+            category=system_category('food'),
+            amount=Decimal('10.00'),
+            currency='USD',
+        )
+        Expense.objects.create(
+            user=self.user,
+            category=system_category('food'),
+            amount=Decimal('20.00'),
+            currency='EUR',
+        )
+        response = self.client.get(reverse('expense-list-create'), {'currency': 'eur'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['currency'], 'EUR')
+
+
+class ReceiptTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='receiptuser', password='securepass1')
+        self.client.force_authenticate(user=self.user)
+
+    def test_create_expense_without_receipt(self):
+        response = self.client.post(
+            reverse('expense-list-create'),
+            {'category': 'food', 'amount': '10.00'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(response.data['receipt'])
+
+    def test_create_expense_with_receipt(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        receipt = SimpleUploadedFile(
+            'receipt.jpg',
+            b'fake-image-content',
+            content_type='image/jpeg',
+        )
+        response = self.client.post(
+            reverse('expense-list-create'),
+            {
+                'category': 'food',
+                'amount': '10.00',
+                'description': 'Coffee',
+                'receipt': receipt,
+            },
+            format='multipart',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data['receipt'])
+        self.assertIn('/media/receipts/', response.data['receipt'])
+
+
+class MultiCurrencyAggregateTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='multiuser', password='securepass1')
+        self.client.force_authenticate(user=self.user)
+
+        Expense.objects.create(
+            user=self.user,
+            category=system_category('food'),
+            amount=Decimal('10.00'),
+            currency='USD',
+        )
+        Expense.objects.create(
+            user=self.user,
+            category=system_category('food'),
+            amount=Decimal('15.00'),
+            currency='USD',
+        )
+        Expense.objects.create(
+            user=self.user,
+            category=system_category('transport'),
+            amount=Decimal('30.00'),
+            currency='EUR',
+        )
+
+    def test_total_grouped_by_currency(self):
+        response = self.client.get(reverse('total-expenses'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn('total_expenses', response.data)
+        by_currency = {item['currency']: item['total'] for item in response.data['by_currency']}
+        self.assertEqual(by_currency['USD'], 25.0)
+        self.assertEqual(by_currency['EUR'], 30.0)
+
+    def test_summary_grouped_by_currency(self):
+        response = self.client.get(reverse('expense-summary'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn('by_category', response.data)
+        by_currency = {item['currency']: item for item in response.data['by_currency']}
+        usd_food = by_currency['USD']['by_category'][0]
+        self.assertEqual(usd_food['category'], 'food')
+        self.assertEqual(usd_food['total'], 25.0)
+        eur_transport = by_currency['EUR']['by_category'][0]
+        self.assertEqual(eur_transport['category'], 'transport')
+        self.assertEqual(eur_transport['total'], 30.0)

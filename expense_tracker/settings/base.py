@@ -1,5 +1,5 @@
 """
-Django settings for expense_tracker project.
+Shared Django settings for the expense_tracker project.
 """
 
 import os
@@ -11,14 +11,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 SECRET_KEY = os.environ.get(
     'SECRET_KEY',
     'django-insecure-c_309a^6+_7mzudf&$$u4rvdkya3@(vcs2^1g8#_afdt86jagt',
 )
-
-DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -39,6 +37,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'accounts',
     'expenses',
+    'budgets',
 ]
 
 MIDDLEWARE = [
@@ -114,7 +113,13 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+MAX_RECEIPT_UPLOAD_SIZE = 5 * 1024 * 1024  # 5 MB
 STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
     'staticfiles': {
         'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
     },
@@ -154,15 +159,3 @@ if _cors_origins:
     ]
 else:
     CORS_ALLOWED_ORIGINS = []
-
-if not DEBUG:
-    SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True').lower() in (
-        'true',
-        '1',
-        'yes',
-    )
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    SECURE_BROWSER_XSS_FILTER = True
-    SECURE_CONTENT_TYPE_NOSNIFF = True
-    X_FRAME_OPTIONS = 'DENY'

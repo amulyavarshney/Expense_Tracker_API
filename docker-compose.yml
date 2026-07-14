@@ -6,6 +6,8 @@ services:
     env_file:
       - .env
     environment:
+      - ENV=${ENV:-dev}
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-expense_tracker.settings}
       - SQLITE_DB_PATH=/data/db.sqlite3
       - DATABASE_URL=${DATABASE_URL:-}
     volumes:

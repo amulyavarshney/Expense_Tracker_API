@@ -25,11 +25,15 @@ jobs:
       - name: Run migrations
         run: python manage.py migrate
         env:
+          ENV: dev
+          DJANGO_SETTINGS_MODULE: expense_tracker.settings.dev
           SECRET_KEY: ci-secret-key
           DEBUG: 'True'
 
       - name: Run tests
         run: python manage.py test
         env:
+          ENV: dev
+          DJANGO_SETTINGS_MODULE: expense_tracker.settings.dev
           SECRET_KEY: ci-secret-key
           DEBUG: 'True'
